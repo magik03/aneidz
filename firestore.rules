@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================
+    // PUBLIC ACCESS - No login required
+    // Anyone with the link can read/write
+    // ============================================================
+    
+    // Main collection: supervisors
+    match /supervisors/{document} {
+      allow read, write: if true;
+    }
+    
+    // Old collection name (Arabic)
+    match /مؤطرين/{document} {
+      allow read, write: if true;
+    }
+    
+    // Centers collection
+    match /centers/{centerId} {
+      allow read, write: if true;
+    }
+    
+    // Users collection - private
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+

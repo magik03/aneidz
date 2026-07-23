@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم - منصة تسجيل المؤطرين ANIE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+
+<!-- Styles -->
+<link rel="stylesheet" href="css/main.css">
+
+</head>
+<body>
+
+<!-- Error Banner -->
+<div id="errorBanner" style="display:none; background:#7f1d1d; color:#fff; padding:12px 20px; text-align:center; font-size:13px; font-weight:700; direction:rtl;"></div>
+
+<!-- Header with User Info -->
+<header>
+  <div style="display:flex; justify-content:space-between; align-items:center; max-width:1100px; margin:0 auto; position:relative;">
+    <div style="text-align:right;">
+      <h1 style="margin:0; font-size:22px;">منصة تسجيل المؤطرين</h1>
+      <p style="margin:4px 0 0; font-size:12px;">
+        <span class="conn-dot off" id="connDot"></span>
+        <span id="connText">جارٍ الاتصال...</span>
+      </p>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button class="btn-secondary btn-small" id="btnThemeToggle" title="تبديل الثيم">
+        <span id="themeToggleIcon">☀️</span>
+      </button>
+      <span id="userDisplay" style="font-size:13px; color:var(--muted); font-weight:600;"></span>
+      <button class="btn-danger btn-small" id="btnSignOut">تسجيل الخروج</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Stats Dashboard -->
+  <div class="card" style="padding:18px;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;" class="stats-grid">
+      <div class="stat-card" style="background:linear-gradient(135deg, rgba(61,139,255,0.1), rgba(61,139,255,0.05)); border:1px solid rgba(61,139,255,0.2); border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:6px;">👥</div>
+        <div style="font-size:28px; font-weight:900; color:var(--text);" id="statTotal">0</div>
+        <div style="font-size:12px; color:var(--muted); font-weight:600;">إجمالي المؤطرين</div>
+      </div>
+      <div class="stat-card" style="background:linear-gradient(135deg, rgba(34,197,94,0.1), rgba(34,197,94,0.05)); border:1px solid rgba(34,197,94,0.2); border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:6px;">✅</div>
+        <div style="font-size:28px; font-weight:900; color:var(--success);" id="statAssigned">0</div>
+        <div style="font-size:12px; color:var(--muted); font-weight:600;">موزّعين</div>
+      </div>
+      <div class="stat-card" style="background:linear-gradient(135deg, rgba(245,158,11,0.1), rgba(245,158,11,0.05)); border:1px solid rgba(245,158,11,0.2); border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:6px;">⬜</div>
+        <div style="font-size:28px; font-weight:900; color:var(--warning);" id="statEmpty">0</div>
+        <div style="font-size:12px; color:var(--muted); font-weight:600;">مقاعد شاغرة</div>
+      </div>
+      <div class="stat-card" style="background:linear-gradient(135deg, rgba(239,68,68,0.1), rgba(239,68,68,0.05)); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:16px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:6px;">🚩</div>
+        <div style="font-size:28px; font-weight:900; color:var(--danger);" id="statFlagged">0</div>
+        <div style="font-size:12px; color:var(--muted); font-weight:600;">مُشار عليهم</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="register">📝 تسجيل المؤطرين</button>
+    <button class="tab-btn" data-tab="distribute">📋 توزيع المراكز</button>
+    <button class="tab-btn" data-tab="monitor">📊 لوحة المتابعة</button>
+    <button class="tab-btn" data-tab="reports">📈 الإحصائيات</button>
+    <button class="tab-btn" data-tab="centers">🏛️ إدارة المراكز</button>
+  </div>
+
+  <!-- Tab: Registration -->
+  <div class="tab-section active" id="tab-register">
+    <div class="card">
+      <h2>تسجيل مؤطر جديد <span class="badge">إدخال البيانات</span></h2>
+      <form id="frmMoatir">
+        <div class="grid">
+          <div class="field">
+            <label>الاسم <span class="req">*</span></label>
+            <input type="text" id="fName" required placeholder="مثال: أحمد">
+          </div>
+          <div class="field">
+            <label>اللقب <span class="req">*</span></label>
+            <input type="text" id="fLastName" required placeholder="مثال: بن علي">
+          </div>
+          <div class="field">
+            <label>تاريخ الميلاد <span class="req">*</span></label>
+            <input type="date" id="fBirth" required>
+          </div>
+          <div class="field">
+            <label>الرقم الانتخابي <span class="opt">(اختياري)</span></label>
+            <input type="text" id="fElectoralNum" placeholder="مثال: 1234567">
+          </div>
+          <div class="field">
+            <label>رقم الهاتف <span class="opt">(اختياري)</span></label>
+            <input type="tel" id="fPhone" placeholder="مثال: 0555123456">
+          </div>
+          <div class="field">
+            <label>المستوى التعليمي <span class="req">*</span></label>
+            <select id="fEducation" required>
+              <option value="" disabled selected>اختر المستوى التعليمي</option>
+              <option value="بدون مستوى">بدون مستوى</option>
+              <option value="إبتدائي">إبتدائي</option>
+              <option value="متوسط">متوسط</option>
+              <option value="ثانوي">ثانوي</option>
+              <option value="ليسانس">ليسانس</option>
+              <option value="ماستر">ماستر</option>
+              <option value="ماجستير">ماجستير</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column: span 2;">
+            <label>ملاحظات <span class="opt">(اختياري)</span></label>
+            <textarea id="fNotes" placeholder="أي ملاحظات إضافية..."></textarea>
+          </div>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary" id="btnSubmit">حفظ المؤطر</button>
+          <button type="button" class="btn-secondary" id="btnReset">تفريغ الحقول</button>
+        </div>
+        <div class="status-msg" id="statusMsg"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>
+        قائمة المؤطرين
+        <span class="counter" id="totalCounter"><b>0</b> مسجّل</span>
+      </h2>
+      <div class="toolbar">
+        <input type="text" id="searchBox" placeholder="🔍 بحث بالاسم، اللقب، الرقم الانتخابي، الهاتف أو تاريخ الميلاد...">
+        <select id="filterPosition">
+          <option value="">كل المناصب</option>
+          <optgroup label="مناصب المركز">
+            <option value="رئيس المركز">رئيس المركز</option>
+            <option value="مساعد المركز الأول">مساعد المركز الأول</option>
+            <option value="مساعد المركز الثاني">مساعد المركز الثاني</option>
+            <option value="مساعد المركز الثالث">مساعد المركز الثالث</option>
+            <option value="مساعد المركز الرابع">مساعد المركز الرابع</option>
+          </optgroup>
+          <optgroup label="مناصب المكتب">
+            <option value="رئيس مكتب">رئيس مكتب</option>
+            <option value="نائب رئيس مكتب">نائب رئيس مكتب</option>
+            <option value="كاتب">كاتب</option>
+            <option value="مساعد أول">مساعد أول</option>
+            <option value="مساعد ثاني">مساعد ثاني</option>
+            <option value="إضافي أول">إضافي أول</option>
+            <option value="إضافي ثاني">إضافي ثاني</option>
+          </optgroup>
+        </select>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); cursor:pointer; white-space:nowrap;">
+          <input type="checkbox" id="filterFlaggedOnly" style="width:auto; padding:0;">
+          إظهار المُشار عليهم فقط 🚩
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>الاسم واللقب</th>
+              <th>تاريخ الميلاد</th>
+              <th>الرقم الانتخابي</th>
+              <th>الهاتف</th>
+              <th>المنصب</th>
+              <th>التوزيع</th>
+              <th>ملاحظات</th>
+              <th>إجراءات</th>
+            </tr>
+          </thead>
+          <tbody id="tblBody"></tbody>
+        </table>
+        <div class="cards-list" id="tblCards"></div>
+        <div class="empty-state" id="emptyState" style="display:none;">
+          <div class="icon">📋</div>
+          <div>لا يوجد مؤطرون مسجّلون بعد</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Distribution -->
+  <div class="tab-section" id="tab-distribute">
+    <div class="card">
+      <h2>توزيع مؤطر <span class="badge">مرحلة التوزيع</span></h2>
+      <div class="grid">
+        <div class="field" style="grid-column: span 2;">
+          <label>اختر المؤطر <span class="req">*</span></label>
+          <select id="dMoatir">
+            <option value="" disabled selected>اختر مؤطراً...</option>
+          </select>
+        </div>
+        <div class="field" style="grid-column: span 2;">
+          <label>نوع التوزيع <span class="req">*</span></label>
+          <select id="dLevel">
+            <option value="office" selected>توزيع داخل مكتب (رئيس مكتب، كاتب...)</option>
+            <option value="center">توزيع على مستوى المركز (رئيس المركز، مساعد...)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>المركز <span class="req">*</span></label>
+          <select id="dCenter">
+            <option value="" disabled selected>اختر المركز...</option>
+          </select>
+        </div>
+        <div class="field" id="fieldOffice">
+          <label>رقم المكتب <span class="req">*</span></label>
+          <select id="dOffice" disabled>
+            <option value="" disabled selected>اختر المركز أولاً</option>
+          </select>
+        </div>
+        <div class="field" id="fieldOfficeType">
+          <label>نوع المكتب <span class="req">*</span></label>
+          <select id="dOfficeType">
+            <option value="بلدي">بلدي</option>
+            <option value="ولائي">ولائي</option>
+          </select>
+        </div>
+        <div class="field" id="fieldOfficePosition">
+          <label>المنصب داخل المكتب <span class="req">*</span></label>
+          <select id="dOfficePosition">
+            <option value="" disabled selected>اختر المنصب...</option>
+            <option value="رئيس مكتب">رئيس مكتب</option>
+            <option value="نائب رئيس مكتب">نائب رئيس مكتب</option>
+            <option value="كاتب">كاتب</option>
+            <option value="مساعد أول">مساعد أول</option>
+            <option value="مساعد ثاني">مساعد ثاني</option>
+            <option value="إضافي أول">إضافي أول</option>
+            <option value="إضافي ثاني">إضافي ثاني</option>
+          </select>
+        </div>
+        <div class="field" id="fieldCenterPosition" style="display:none;">
+          <label>المنصب على مستوى المركز <span class="req">*</span></label>
+          <select id="dCenterPosition">
+            <option value="" disabled selected>اختر المنصب...</option>
+            <option value="رئيس المركز">رئيس المركز</option>
+            <option value="مساعد المركز الأول">مساعد المركز الأول</option>
+            <option value="مساعد المركز الثاني">مساعد المركز الثاني</option>
+            <option value="مساعد المركز الثالث">مساعد المركز الثالث</option>
+            <option value="مساعد المركز الرابع">مساعد المركز الرابع</option>
+          </select>
+        </div>
+      </div>
+      <div id="currentAssignmentBox" style="display:none; margin-top:14px; padding:12px 16px; background:rgba(61,139,255,0.08); border:1px solid rgba(61,139,255,0.25); border-radius:10px; font-size:13px; color:var(--muted);"></div>
+      <div class="actions">
+        <button type="button" class="btn-primary" id="btnDistribute">توزيع المؤطر</button>
+        <button type="button" class="btn-danger" id="btnUnassign">إلغاء توزيعه الحالي</button>
+      </div>
+      <div class="status-msg" id="distributeStatus"></div>
+    </div>
+    <div class="card" id="conflictCard" style="display:none; border-color:rgba(239,68,68,0.4);">
+      <h2 style="color:#ff9c9c;">⚠️ هذا المقعد مشغول</h2>
+      <div id="conflictInfo"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Monitor -->
+  <div class="tab-section" id="tab-monitor">
+    <div class="card">
+      <h2 style="justify-content:space-between; flex-wrap:wrap;">
+        <span>لوحة متابعة المراكز والمكاتب <span class="badge">تفاصيل كاملة</span></span>
+        <span style="display:flex; gap:8px;">
+          <button type="button" class="btn-secondary btn-small" id="btnExportAll">⬇ تصدير الكل (Excel)</button>
+          <button type="button" class="btn-secondary btn-small" id="btnExportAssigned">⬇ الموزَّعين فقط</button>
+          <button type="button" class="btn-secondary btn-small" id="btnPrintReport">🖨️ طباعة</button>
+        </span>
+      </h2>
+      <div class="toolbar">
+        <select id="monFilterCenter">
+          <option value="">كل المراكز</option>
+        </select>
+        <select id="monFilterStatus">
+          <option value="">كل الحالات</option>
+          <option value="filled">مشغولة فقط</option>
+          <option value="empty">شاغرة فقط</option>
+          <option value="flagged">مُشار عليهم 🚩</option>
+        </select>
+      </div>
+      <div id="monitorContent"></div>
+    </div>
+  </div>
+
+  <!-- Tab: Reports / Stats -->
+  <div class="tab-section" id="tab-reports">
+    <div class="card">
+      <h2>📊 الإحصائيات والرسوم البيانية</h2>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:18px;" class="charts-grid">
+        <div class="chart-container" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px;">
+          <h3 style="font-size:14px; color:var(--muted); margin-bottom:12px;">توزيع المؤطرين حسب المستوى التعليمي</h3>
+          <canvas id="chartEducation" style="max-height:280px;"></canvas>
+        </div>
+        <div class="chart-container" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px;">
+          <h3 style="font-size:14px; color:var(--muted); margin-bottom:12px;">شغل المقاعد في كل مركز</h3>
+          <canvas id="chartCenters" style="max-height:280px;"></canvas>
+        </div>
+        <div class="chart-container" style="background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px; grid-column: span 2;">
+          <h3 style="font-size:14px; color:var(--muted); margin-bottom:12px;">التسجيلات مع مرور الوقت</h3>
+          <canvas id="chartTimeline" style="max-height:240px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab: Centers Management -->
+  <div class="tab-section" id="tab-centers">
+    <div class="card">
+      <h2 style="justify-content:space-between; flex-wrap:wrap;">
+        <span>🏛️ قائمة المراكز <span class="badge">إدارة المراكز والمكاتب</span></span>
+        <button type="button" class="btn-primary btn-small" id="btnAddCenter">➕ إضافة مركز جديد</button>
+      </h2>
+      <div id="centersContent"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h3>تعديل بيانات المؤطر</h3>
+    <div class="grid" style="margin-bottom:14px;">
+      <div class="field"><label>الاسم</label><input type="text" id="eName"></div>
+      <div class="field"><label>اللقب</label><input type="text" id="eLastName"></div>
+      <div class="field"><label>تاريخ الميلاد</label><input type="date" id="eBirth"></div>
+      <div class="field"><label>الرقم الانتخابي</label><input type="text" id="eElectoralNum"></div>
+      <div class="field"><label>رقم الهاتف</label><input type="tel" id="ePhone"></div>
+      <div class="field"><label>المستوى التعليمي</label>
+        <select id="eEducation">
+          <option value="بدون مستوى">بدون مستوى</option>
+          <option value="إبتدائي">إبتدائي</option>
+          <option value="متوسط">متوسط</option>
+          <option value="ثانوي">ثانوي</option>
+          <option value="ليسانس">ليسانس</option>
+          <option value="ماستر">ماستر</option>
+          <option value="ماجستير">ماجستير</option>
+        </select>
+      </div>
+      <div class="field" style="grid-column: span 2;"><label>ملاحظات</label><textarea id="eNotes"></textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="btnSaveEdit">حفظ التعديل</button>
+      <button class="btn-secondary" id="btnCancelEdit">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="flagModal">
+  <div class="modal">
+    <h3 style="color:#ff9c9c;">🚩 وضع إشارة على المؤطر</h3>
+    <p id="flagMoatirName" style="color:var(--text); font-weight:700; margin-bottom:14px;"></p>
+    <div class="field" style="margin-bottom:12px;">
+      <label>نوع المشكلة <span class="req">*</span></label>
+      <input type="text" id="flagIssueType" placeholder="مثال: أخلّ بالنظام العام">
+    </div>
+    <div class="actions">
+      <button class="btn-danger" id="btnSaveFlag">حفظ الإشارة</button>
+      <button class="btn-secondary" id="btnRemoveFlag">إزالة الإشارة</button>
+      <button class="btn-secondary" id="btnCancelFlag">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>تأكيد الحذف</h3>
+    <p>هل أنت متأكد من حذف هذا المؤطر؟ لا يمكن التراجع عن هذا الإجراء.</p>
+    <div class="actions">
+      <button class="btn-danger" id="btnConfirmDelete">حذف نهائي</button>
+      <button class="btn-secondary" id="btnCancelDelete">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Center Modal (Add/Edit) -->
+<div class="modal-overlay" id="centerModal">
+  <div class="modal">
+    <h3 id="centerFormTitle">إضافة مركز جديد</h3>
+    <div class="grid" style="margin-bottom:14px;">
+      <div class="field">
+        <label>رمز المركز <span class="req">*</span></label>
+        <input type="text" id="cCode" placeholder="مثال: 06" maxlength="10">
+        <small style="color:var(--muted); font-size:11px;">رمز فريد يميز المركز (أرقام أو أحرف)</small>
+      </div>
+      <div class="field">
+        <label>اسم المركز <span class="req">*</span></label>
+        <input type="text" id="cName" placeholder="مثال: المركز الجديد">
+      </div>
+      <div class="field" style="grid-column: span 2;">
+        <label>أرقام المكاتب <span class="opt">(اختياري)</span></label>
+        <input type="text" id="cOffices" placeholder="مثال: 1, 2, 3, 4, 5">
+        <small style="color:var(--muted); font-size:11px;">أرقام المكاتب مفصولة بفواصل (مثال: 1, 2, 3)</small>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" id="btnSaveCenter">إضافة المركز</button>
+      <button class="btn-secondary" id="btnCancelCenter">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Center Modal -->
+<div class="modal-overlay" id="deleteCenterModal">
+  <div class="modal">
+    <h3 style="color:#ff9c9c;">🗑️ تأكيد حذف المركز</h3>
+    <div id="deleteCenterBody"></div>
+    <div class="actions" style="margin-top:16px;">
+      <button class="btn-danger" id="btnConfirmDeleteCenter">حذف المركز</button>
+      <button class="btn-secondary" id="btnCancelDeleteCenter">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/firebase.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/utils/helpers.js"></script>
+<script src="js/utils/validators.js"></script>
+<script src="js/utils/export.js"></script>
+<script src="js/components/toast.js"></script>
+<script src="js/components/modal.js"></script>
+<script src="js/components/charts.js"></script>
+<script src="js/components/search.js"></script>
+<script src="js/modules/registration.js"></script>
+<script src="js/modules/distribution.js"></script>
+<script src="js/modules/monitor.js"></script>
+<script src="js/modules/centers.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
